@@ -93,26 +93,26 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.Author.ID == os.Getenv("MY_DISCORD_ID") {
-		if m.Content == "!resetgemini" {
-			if err := s.UpdateCustomStatus("Tokens: 0"); err != nil {
-				log.Println(err)
-				return
-			}
-			if err := s.ChannelTyping(m.ChannelID); err != nil {
-				log.Println(err)
-				return
-			}
-			conversation = *newConversation()
-			_, err := s.ChannelMessageSend(m.ChannelID, "Cleared gemini conversation!")
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			log.Println("Cleared gemini conversation")
+	// if m.Author.ID == os.Getenv("MY_DISCORD_ID") {
+	if m.Content == "!resetgemini" {
+		if err := s.UpdateCustomStatus("Tokens: 0"); err != nil {
+			log.Println(err)
 			return
 		}
+		if err := s.ChannelTyping(m.ChannelID); err != nil {
+			log.Println(err)
+			return
+		}
+		conversation = *newConversation()
+		_, err := s.ChannelMessageSend(m.ChannelID, "Cleared gemini conversation!")
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		log.Println("Cleared gemini conversation")
+		return
 	}
+	// }
 
 	// checks if mentioned
 	var mentioned bool = false
