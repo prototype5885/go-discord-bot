@@ -5,12 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/jpeg"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -163,7 +162,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Printf("Attachment found: %s\n", m.Attachments[0].Filename)
 			// check if attachment is in supported format
 			var supported bool = false
-			for _, item := range []string{"image/jpg", "image/jpeg", "image/png"} {
+			for _, item := range []string{"image/jpg", "image/jpeg", "image/png", "image/webp"} {
 				if m.Attachments[0].ContentType == item {
 					supported = true
 					break
@@ -346,6 +345,59 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
+func ffmpeg(inputBytes []byte) ([]byte, error) {
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", "pipe:0",
+		"-vframes", "1",
+		"-c:v", "mjpeg",
+		"-q:v", "50",
+		"-f", "image2",
+		"pipe:1",
+	)
+
+	// print ffmpeg result
+	// cmd.Stderr = os.Stderr
+
+	// this will send the input picture bytes to ffmpeg
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	// this will store the converted image result
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	// start the command
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	// send the input bytes
+	_, err = stdin.Write(inputBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	err = stdin.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	// wait for it to finish
+	err = cmd.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	// read the converted image bytes back
+	resultBytes := stdout.Bytes()
+
+	return resultBytes, nil
+}
+
 func downloadFile(msg *discordgo.MessageAttachment) (string, error) {
 	// download image
 	resp, err := http.Get(msg.URL)
@@ -360,19 +412,11 @@ func downloadFile(msg *discordgo.MessageAttachment) (string, error) {
 		return "", err
 	}
 
-	// decode
-	img, _, err := image.Decode(bytes.NewReader(imageData))
-	if err != nil {
-		return "", err
-	}
-
-	// recompress into jpg
-	var buf bytes.Buffer
-	err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 50})
+	jpgBytes, err := ffmpeg(imageData)
 	if err != nil {
 		return "", err
 	}
 
 	// encode to base64
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+	return base64.StdEncoding.EncodeToString(jpgBytes), nil
 }
