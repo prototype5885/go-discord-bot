@@ -287,12 +287,21 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// split messages into chunks
 			if len(geminiResponse.Parts.Text) > 2000 {
 				var chunks []string
-				for i := 0; i < len(geminiResponse.Parts.Text); i += 2000 {
+				text := geminiResponse.Parts.Text
+				for i := 0; i < len(text); {
 					end := i + 2000
-					if end > len(geminiResponse.Parts.Text) {
-						end = len(geminiResponse.Parts.Text)
+					if end > len(text) {
+						end = len(text)
+					} else {
+						if idx := strings.LastIndexByte(text[i:end], ' '); idx != -1 {
+							end = i + idx
+						}
 					}
-					chunks = append(chunks, geminiResponse.Parts.Text[i:end])
+					chunks = append(chunks, text[i:end])
+					for end < len(text) && text[end] == ' ' {
+						end++
+					}
+					i = end
 				}
 
 				// send the chunks
@@ -351,7 +360,7 @@ func ffmpeg(inputBytes []byte) ([]byte, error) {
 		"-i", "pipe:0",
 		"-vframes", "1",
 		"-c:v", "mjpeg",
-		"-q:v", "50",
+		"-q:v", "90",
 		"-f", "image2",
 		"pipe:1",
 	)
