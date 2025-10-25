@@ -281,7 +281,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// log.Println("Adding gemini's reply to conversation...")
 			conversation.Contents = append(conversation.Contents, geminiResponse)
 			if len(conversation.Contents) >= 10 {
-				conversation.Contents = conversation.Contents[1:]
+				conversation.Contents = conversation.Contents[len(conversation.Contents)-10:]
 			}
 
 			// split messages into chunks
