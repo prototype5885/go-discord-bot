@@ -133,6 +133,28 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if m.Content == "!history" {
+		var message string
+		for _, value := range conversation.Contents {
+			var shortMsg string
+			if len(value.Parts.Text) > 64 {
+				shortMsg = fmt.Sprintf("%s...", value.Parts.Text[:64])
+			} else {
+				shortMsg = value.Parts.Text
+			}
+
+			message += fmt.Sprintf("%s: %s\n\n", value.Role, shortMsg)
+		}
+
+		_, err := s.ChannelMessageSend(m.ChannelID, message)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		return
+	}
+
 	if m.Content == "!resetgemini" {
 		if err := s.UpdateCustomStatus("Tokens: 0"); err != nil {
 			log.Println(err)
