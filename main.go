@@ -21,12 +21,38 @@ import (
 var conversation Conversation = *newConversation()
 var url string
 
+var nextKeyIndex int = 0
+var keys []string
+
+func setNextKey() {
+	nextKeyIndex = (nextKeyIndex + 1) % len(keys)
+}
+
+func setUrl() {
+	fmt.Printf("Next api key index is %d...\n", nextKeyIndex)
+	if keys[nextKeyIndex] != "" {
+		url = fmt.Sprintf("https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=%s", keys[nextKeyIndex])
+		setNextKey()
+	} else {
+		setNextKey()
+		setUrl()
+	}
+}
+
 func revertLastUserMsg() {
+	if len(conversation.Contents) < 1 {
+		return
+	}
+
 	log.Println("Reverting last user msg")
 	conversation.Contents = conversation.Contents[:len(conversation.Contents)-1]
 }
 
 func revertLastTwoMsg() {
+	if len(conversation.Contents) < 2 {
+		return
+	}
+
 	log.Println("Reverting both last user and gemini msgs")
 	conversation.Contents = conversation.Contents[:len(conversation.Contents)-2]
 }
@@ -60,7 +86,17 @@ func main() {
 		return
 	}
 
-	url = fmt.Sprintf("https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=%s", os.Getenv("GEMINI_API_KEY"))
+	keys = []string{}
+	for i := range 16 {
+		key := os.Getenv(fmt.Sprintf("GEMINI_API_KEY%d", i))
+		if key != "" {
+			keys = append(keys, key)
+		}
+
+	}
+	fmt.Printf("Found %d gemini keys\n", len(keys))
+
+	setUrl()
 
 	log.Println("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -92,7 +128,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// if m.Author.ID == os.Getenv("MY_DISCORD_ID") {
+	if m.Content == "!restart" {
+		os.Exit(0)
+		return
+	}
+
 	if m.Content == "!resetgemini" {
 		if err := s.UpdateCustomStatus("Tokens: 0"); err != nil {
 			log.Println(err)
@@ -111,7 +151,25 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		log.Println("Cleared gemini conversation")
 		return
 	}
-	// }
+
+	if m.Content == "!revert" || m.Content == "!undo" {
+		revertLastTwoMsg()
+
+		lastMessage := conversation.Contents[len(conversation.Contents)-1].Parts.Text
+		var partOfMessage string
+		if len(lastMessage) > 128 {
+			partOfMessage = lastMessage[:128]
+		} else {
+			partOfMessage = lastMessage
+		}
+
+		_, err := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Deleted last 2 messages! Current last message begins with:\n\n%s...", partOfMessage))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		return
+	}
 
 	// checks if mentioned
 	var mentioned bool = false
@@ -343,6 +401,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			issue := fmt.Sprintf("Error code: %d", response.Error.Code)
 			log.Println(issue)
 			log.Println(response.Error.Message)
+			if response.Error.Code == 429 {
+				setUrl()
+				issue = fmt.Sprintf("%s, changing api key to index %d", issue, nextKeyIndex)
+			}
 			_, err = s.ChannelMessageSend(m.ChannelID, issue)
 			if err != nil {
 				log.Println(err)
