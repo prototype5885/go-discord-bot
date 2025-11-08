@@ -20,6 +20,7 @@ import (
 
 var conversation Conversation = *newConversation()
 var url string
+var prompt string = ""
 
 var nextKeyIndex int = 0
 var keys []string
@@ -156,6 +157,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content == "!resetgemini" {
+		prompt = ""
 		if err := s.UpdateCustomStatus("Tokens: 0"); err != nil {
 			log.Println(err)
 			return
@@ -193,6 +195,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if strings.HasPrefix(m.Content, "!prompt") {
+		prompt = strings.TrimSpace(strings.TrimPrefix(m.Content, "!prompt"))
+		return
+	}
+
 	// checks if mentioned
 	var mentioned bool = false
 	for i := 0; i < len(m.Mentions); i++ {
@@ -224,6 +231,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		} else if len(noMentionMsg) > 1 && questionMark {
 			// Step 3: If a question mark is true, remove the first two characters
 			noMentionMsg = noMentionMsg[2:]
+		}
+
+		if prompt != "" {
+			noMentionMsg = fmt.Sprintf("%s [%s]", noMentionMsg, prompt)
 		}
 
 		// sends typing indicator thing to discord
