@@ -432,6 +432,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println(err)
 				return
 			}
+			revertLastUserMsg()
 			return
 		}
 
