@@ -20,7 +20,10 @@ import (
 
 var conversation Conversation = *newConversation()
 var url string
-var prompt string = ""
+
+const defaultPrompt string = "short to medium sized answer"
+
+var prompt string = defaultPrompt
 
 var nextKeyIndex int = 0
 var keys []string
@@ -157,7 +160,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content == "!resetgemini" {
-		prompt = ""
+		prompt = defaultPrompt
 		if err := s.UpdateCustomStatus("Tokens: 0"); err != nil {
 			log.Println(err)
 			return
